@@ -239,9 +239,10 @@ void decreaseKey(struct MinHeap* minHeap, int posX, int posY, int time) {
     int parentPos = (pos - 1) / 2;
     while (pos && minHeap->array[pos]->time < minHeap->array[parentPos]->time) {
         swapMinHeapNodes(minHeap, pos, parentPos);
+
         pos = (pos - 1) / 2;
+        parentPos = (pos - 1) / 2;
     }
-    printf("\n");
 }
 
 void setMinHeapStart(MinHeap *minHeap, char** map, int posX, int posY) {
@@ -267,11 +268,13 @@ void printMinHeap(MinHeap *minHeap) {
         printf("array[%d]: %d\n", i, minHeap->array[i]->time);
     }
 
+    /*
     for (posY = 0; posY < minHeap->height; posY++) {
         for (posX = 0; posX < minHeap->width; posX++) {
             printf("pos[%d][%d]: %d\n", posY, posX, minHeap->pos[posY][posX]);
         }
     }
+    */
 
     printf("\n");
 }
@@ -335,7 +338,11 @@ void check(PathFinder *pathFinder, MinHeap *minHeap, PathTile *prevPathTile, int
 int visit(PathFinder *pathFinder, MinHeap *minHeap, int posX, int posY) {
     PathTile *pathTile = pathFinder->array[posY][posX];
 
+    printf("visiting tile[Y/X]: %d/%d\n", pathTile->posY, pathTile->posX);
+
+
     if (!pathTile->accessible) {
+        printf("not accessible\n");
         return 0;
     }
 
