@@ -18,16 +18,16 @@ typedef struct MinHeap {
 } MinHeap;
 
 void swapMinHeapNodes(MinHeap *minHeap, int posA, int posB) {
-    MinHeapNode *aNode = minHeap->array[posA];
-    MinHeapNode *bNode = minHeap->array[posB];
-    MinHeapNode *tempNode;
+    MinHeapNode **aNode = &minHeap->array[posA];
+    MinHeapNode **bNode = &minHeap->array[posB];
+    MinHeapNode **tempNode;
 
-    minHeap->pos[aNode->posX][aNode->posY] = posB;
-    minHeap->pos[bNode->posX][bNode->posY] = posA;
+    minHeap->pos[(*aNode)->posY][(*aNode)->posX] = posB;
+    minHeap->pos[(*bNode)->posY][(*bNode)->posX] = posA;
 
-    tempNode = aNode;
-    aNode = bNode;
-    bNode = tempNode;
+    tempNode = *aNode;
+    *aNode = *bNode;
+    *bNode = tempNode;
 }
 
 void minHeapify(MinHeap *minHeap, int parentPos) {
@@ -37,11 +37,11 @@ void minHeapify(MinHeap *minHeap, int parentPos) {
 
     MinHeapNode *parent = minHeap->array[parentPos];
     MinHeapNode *leftChild = NULL;
-    if (leftChildPos < minHeap->size) {
+    if (leftChildPos < minHeap->size - 1) {
         leftChild = minHeap->array[leftChildPos];
     }
     MinHeapNode *rightChild = NULL;
-    if (rightChildPos < minHeap->size) {
+    if (rightChildPos < minHeap->size - 1) {
         rightChild = minHeap->array[rightChildPos];
     }
 
@@ -62,7 +62,7 @@ void minHeapify(MinHeap *minHeap, int parentPos) {
         smallestPos = rightChildPos;
     }
 
-    if (smallestChild != NULL) {
+    if (smallestChild != NULL && smallestChild->time < parent->time) {
         swapMinHeapNodes(minHeap, parentPos, smallestPos);
         minHeapify(minHeap, smallestPos);
     }
@@ -76,7 +76,7 @@ MinHeapNode *extractMin(MinHeap *minHeap) {
     swapMinHeapNodes(minHeap, firstNodePos, lastNodePos);
 
     minHeap->size--;
-    minHeapify(minHeap, 0);
+    //minHeapify(minHeap, 0);
 
     return firstNode;
 }
@@ -135,12 +135,19 @@ void setMinHeapStart(MinHeap *minHeap, int posX, int posY) {
 }
 
 void printMinHeap(MinHeap *minHeap) {
-    int i;
+    int i, posX, posY;
 
     for (i = 0; i < minHeap->size; i++) {
-        printf("%d: %d\n", i, minHeap->array[i]->time);
+        printf("array[%d]: %d\n", i, minHeap->array[i]->time);
     }
 
+    for (posY = 0; posY < minHeap->height; posY++) {
+        for (posX = 0; posX < minHeap->width; posX++) {
+            printf("pos[%d][%d]: %d\n", posY, posX, minHeap->pos[posY][posX]);
+        }
+    }
+
+    printf("\n");
 }
 
 int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
@@ -200,10 +207,13 @@ int main() {
     setMinHeapStart(minHeap, 0, 0);
     printMinHeap(minHeap);
     for (i = 0; i < 5; i++) {
+        printf("EXTRACTION %d:\n", i);
         extractMin(minHeap);
+        printf("\n");
+        printMinHeap(minHeap);
     }
-    printf("\n");
-    printMinHeap(minHeap);
+
+    return 0;
 }
 
 /*
