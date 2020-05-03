@@ -17,6 +17,19 @@ typedef struct MinHeap {
     struct MinHeapNode **array;
 } MinHeap;
 
+typedef struct PathTile {
+    char pathType;
+    int posX, posY;
+    int time;
+    int accessible, visited;
+    struct PathTile *prevPathTile;
+} PathTile;
+
+typedef struct PathFinder {
+    int width, height;
+    struct PathTile ***array;
+} PathFinder;
+
 void swapMinHeapNodes(MinHeap *minHeap, int posA, int posB) {
     MinHeapNode **aNode = &minHeap->array[posA];
     MinHeapNode **bNode = &minHeap->array[posB];
@@ -25,9 +38,9 @@ void swapMinHeapNodes(MinHeap *minHeap, int posA, int posB) {
     minHeap->pos[(*aNode)->posY][(*aNode)->posX] = posB;
     minHeap->pos[(*bNode)->posY][(*bNode)->posX] = posA;
 
-    tempNode = *aNode;
+    tempNode = aNode;
     *aNode = *bNode;
-    *bNode = tempNode;
+    *bNode = *tempNode;
 }
 
 void minHeapify(MinHeap *minHeap, int parentPos) {
@@ -76,7 +89,7 @@ MinHeapNode *extractMin(MinHeap *minHeap) {
     swapMinHeapNodes(minHeap, firstNodePos, lastNodePos);
 
     minHeap->size--;
-    //minHeapify(minHeap, 0);
+    minHeapify(minHeap, 0);
 
     return firstNode;
 }
@@ -120,6 +133,68 @@ MinHeap* createMinHeap(int width, int height) {
     return minHeap;
 }
 
+PathFinder *createPathFinder(int width, int height) {
+    int i, posX, posY;
+
+    PathFinder *pathFinder = (PathFinder *)malloc(sizeof(PathFinder));
+
+    pathFinder->array = (PathTile ***)malloc(height * sizeof(PathTile **));
+    for (posY = 0; posY < height; posY++) {
+        pathFinder->array[posY] = (PathTile **)malloc(width * sizeof(PathTile *));
+
+        for (posX = 0; posX < width; posX++) {
+            pathFinder->array[posY][posX] = (PathTile *)malloc(sizeof(PathTile));
+        }
+    }
+
+    for (posY = 0; posY < height; posY++) {
+        for (posX = 0; posX < width; posX++) {
+            PathTile *pathTile = pathFinder->array[posY][posX];
+
+            pathTile->posX = posX;
+            pathTile->posY = posY;
+            pathTile->time = INT_MAX;
+            pathTile->visited = 0;
+            pathTile->accessible = 0;
+            pathTile->prevPathTile = NULL;
+        }
+    }
+
+    return pathFinder;
+}
+
+void setPathFinderStart(PathFinder *pathFinder, int posX, int posY) {
+    PathTile *pathTile = pathFinder->array[posX][posY];
+
+    pathTile->time = 0;
+    pathTile->accessible = 1;
+    pathTile->prevPathTile = NULL;
+}
+
+void setPathFinderTileTypes(PathFinder *pathFinder, char **map) {
+    int posX, posY;
+
+    for (posY = 0; posY < pathFinder->height; posY++) {
+        for (posX = 0; posX < pathFinder->width; posX++) {
+            PathTile *pathTile = pathFinder->array[posY][posX];
+            pathTile->pathType = map[posY][posX];
+        }
+    }
+}
+
+void resetPathFinder(PathFinder *pathFinder) {
+    int posX, posY;
+
+    for (posY = 0; posY < pathFinder->height; posY++) {
+        for (posX = 0; posX < pathFinder->width; posX++) {
+            PathTile *pathTile = pathFinder->array[posY][posX];
+
+            pathTile->time = 0;
+            pathTile->prevPathTile = NULL;
+        }
+    }
+}
+
 void decreaseKey(struct MinHeap* minHeap, int posX, int posY, int time) {
     int pos = minHeap->pos[posY][posX];
     minHeap->array[pos]->time = time;
@@ -150,13 +225,101 @@ void printMinHeap(MinHeap *minHeap) {
     printf("\n");
 }
 
-int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
-    int i;
+int existsInPathFinder(PathFinder *pathFinder, int posX, int posY) {
+    int width = pathFinder->width;
+    int height = pathFinder->height;
 
-    MinHeap *minHeap = createMinHeap(m, n);
+    return (posX >= 0 && posX < width && posY >= 0 && posY < height);
+}
+
+int wasVisited(PathTile *pathTile) {
+    return pathTile->visited;
+}
+
+int isBlocker(PathTile *pathTile) {
+    return (pathTile->pathType == 'N');
+}
+
+void check(PathFinder *pathFinder, PathTile *prevPathTile, int posX, int posY) {
+    if (!existsInPathFinder(pathFinder, posX, posY)) {
+        return;
+    }
+
+    PathTile *curPathTile = pathFinder->array[posX][posY];
+
+    if (wasVisited(curPathTile)) {
+        return;
+    }
+
+    if (isBlocker(curPathTile)) {
+        return;
+    }
+
+    char tileType = curPathTile->pathType;
+    curPathTile->accessible = 1;
+
+    int timeInc = 0;
+    switch (tileType) {
+    case 'C': case 'D': case 'P':
+        timeInc = 1;
+        break;
+    case 'H':
+        timeInc = 2;
+        break;
+    }
+
+    int newTime = prevPathTile->time + timeInc;
+
+    if (newTime > curPathTile->time) {
+        curPathTile->time = newTime;
+        curPathTile->prevPathTile = prevPathTile;
+    }
+}
+
+int visit(PathFinder *pathFinder, int posX, int posY) {
+    PathTile *pathTile = pathFinder->array[posX][posY];
+
+    if (!pathTile->accessible) {
+        return 0;
+    }
+
+    pathTile->visited = 1;
+
+    check(pathFinder, pathTile, posX - 1, posY);
+    check(pathFinder, pathTile, posX, posY - 1);
+    check(pathFinder, pathTile, posX + 1, posY);
+    check(pathFinder, pathTile, posX, posY + 1);
+
+    return 1;
+}
+
+int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
+    int width = m;
+    int height = n;
+    char **map = mapa;
+    int time = t;
+
+    int i, *path;
+
+    MinHeap *minHeap = createMinHeap(width, height);
     setMinHeapStart(minHeap, 0, 0);
 
+    PathFinder *pathFinder = createPathFinder(width, height);
+    setPathFinderStart(pathFinder, 0, 0);
+    setPathFinderTileTypes(pathFinder, map);
 
+    while(minHeap->size != 0) {
+        MinHeapNode *minHeapNode = extractMin(minHeap);
+
+        int posX = minHeapNode->posX;
+        int posY = minHeapNode->posY;
+
+        if (!visit(pathFinder, posX, posY)) {
+            break;
+        }
+    }
+
+    return path;
     /*
     int *cesta;
     int curX, curY;
@@ -201,17 +364,27 @@ void check(char **mapa, int curX, curY) {
 */
 
 int main() {
-    int i;
+    char **mapa;
+    int i, dlzka_cesty, cas, *cesta;
+    int n=0, m=0, t=0;
 
-    MinHeap *minHeap = createMinHeap(5, 5);
-    setMinHeapStart(minHeap, 0, 0);
-    printMinHeap(minHeap);
-    for (i = 0; i < 5; i++) {
-        printf("EXTRACTION %d:\n", i);
-        extractMin(minHeap);
-        printf("\n");
-        printMinHeap(minHeap);
-    }
+    n = 10;
+    m = 10;
+    t = 12;
+
+    mapa = (char**)malloc(n*sizeof(char*));
+    mapa[0]="CCHCNHCCHN";
+    mapa[1]="NNCCCHHCCC";
+    mapa[2]="DNCCNNHHHC";
+    mapa[3]="CHHHCCCCCC";
+    mapa[4]="CCCCCNHHHH";
+    mapa[5]="PCHCCCNNNN";
+    mapa[6]="NNNNNHCCCC";
+    mapa[7]="CCCCCPCCCC";
+    mapa[8]="CCCNNHHHHH";
+    mapa[9]="HHHPCCCCCC";
+
+    cesta = zachran_princezne(mapa, n, m, t, &dlzka_cesty);
 
     return 0;
 }
@@ -238,7 +411,7 @@ int main() {
             else
                 continue;
             mapa = (char**)malloc(n*sizeof(char*));
-            for(i=0; i<n; i++){
+            for(i = 0; i < n; i++){
                 mapa[i] = (char*)malloc(m*sizeof(char));
                     for (int j=0; j<m; j++){
                         char policko = fgetc(f);
@@ -271,12 +444,12 @@ int main() {
             continue;
         }
         cas = 0;
-        for(i=0; i<dlzka_cesty; i++){
+        for(i = 0; i < dlzka_cesty; i++){
             printf("%d %d\n", cesta[i*2], cesta[i*2+1]);
             if(mapa[cesta[i*2+1]][cesta[i*2]] == 'H')
-                cas+=2;
+                cas += 2;
             else
-                cas+=1;
+                cas += 1;
             if(mapa[cesta[i*2+1]][cesta[i*2]] == 'D' && cas > t)
                 printf("Nestihol si zabit draka!\n");
             if(mapa[cesta[i*2+1]][cesta[i*2]] == 'N')
