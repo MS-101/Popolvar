@@ -410,7 +410,7 @@ PathTile *getDragonTile(PathFinder *pathFinder) {
         for (posX = 0; posX < pathFinder->width; posX++) {
             PathTile *pathTile = pathFinder->array[posY][posX];
 
-            if (pathTile->pathType == 'D') {
+            if (pathTile->pathType == 'D' && pathTile->accessible == 1) {
                 return pathTile;
             }
         }
@@ -419,17 +419,56 @@ PathTile *getDragonTile(PathFinder *pathFinder) {
     return NULL;
 }
 
-PathTile *getPrincessTile(PathFinder *pathFinder) {
+int hasPrincess(PathFinder *pathFinder) {
     int posX, posY;
 
     for (posY = 0; posY < pathFinder->height; posY++) {
         for (posX = 0; posX < pathFinder->width; posX++) {
             PathTile *pathTile = pathFinder->array[posY][posX];
 
-            if (pathTile->pathType == 'P') {
-                return pathTile;
+            if (pathTile->pathType == 'P' && pathTile->accessible == 1) {
+                return 1;
             }
         }
+    }
+
+    return 0;
+}
+
+PathTile *getPrincessTile(PathFinder *pathFinder) {
+    int i;
+    int posX, posY;
+    int princessCount = 0;
+    PathTile **princessArray;
+
+    for (posY = 0; posY < pathFinder->height; posY++) {
+        for (posX = 0; posX < pathFinder->width; posX++) {
+            PathTile *pathTile = pathFinder->array[posY][posX];
+
+            if (pathTile->pathType == 'P' && pathTile->accessible == 1) {
+                if (princessCount == 0) {
+                    princessCount++;
+                    princessArray = (PathTile **)malloc(princessCount * sizeof(PathTile *));
+                    princessArray[princessCount - 1] = pathTile;
+                } else {
+                    princessCount++;
+                    princessArray = (PathTile **)realloc(princessArray, princessCount * sizeof(PathTile *));
+                    princessArray[princessCount - 1] = pathTile;
+                }
+            }
+        }
+    }
+
+    if (princessCount > 0) {
+        PathTile *closestPrincess = princessArray[0];
+
+        for (i = 1; i < princessCount; i++) {
+            if (princessArray[i]->time < closestPrincess->time) {
+                closestPrincess = princessArray[i];
+            }
+        }
+
+        return closestPrincess;
     }
 
     return NULL;
@@ -508,38 +547,28 @@ int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
     if (dragonTile != NULL) {
         path = getPath(dragonTile, pathLength);
     } else {
-        pathLength = 0;
+        *pathLength = 0;
         return NULL;
     }
 
-    if (dragonTile->time > time) {
-        pathLength = 0;
+    if (dragonTile->time >= time) {
+        *pathLength = 0;
         return NULL;
     }
 
     pathFinder->array[dragonTile->posY][dragonTile->posX]->pathType = 'C';
 
-    printf("DRAGON FOUND!\n");
-    printf("\n");
-
     PathTile *prevTile = dragonTile;
-    while (getPrincessTile(pathFinder) != NULL) {
-        Dijkstra(minHeap, pathFinder, prevTile->posX, prevTile->posY);
+    while (hasPrincess(pathFinder)) {
 
-        printPathFinder(pathFinder);
+        Dijkstra(minHeap, pathFinder, prevTile->posX, prevTile->posY);
 
         PathTile *princessTile = getPrincessTile(pathFinder);
         addPath(path, princessTile, pathLength);
 
         pathFinder->array[princessTile->posY][princessTile->posX]->pathType = 'C';
         prevTile = princessTile;
-
-        printf("PRINCESS FOUND!\n");
-        printf("\n");
     }
-
-    printf("PRINCESSES FOUND!");
-    printf("\n");
 
     return path;
 }
@@ -551,7 +580,7 @@ int main() {
 
     n = 10;
     m = 10;
-    t = 12;
+    t = 20;
 
     mapa = (char**)malloc(n*sizeof(char*));
     mapa[0]="CCHCNHCCHN";
