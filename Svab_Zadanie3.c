@@ -133,6 +133,24 @@ MinHeap* createMinHeap(int width, int height) {
     return minHeap;
 }
 
+void resetMinHeap(MinHeap *minHeap) {
+    int i, capacity = minHeap->capacity;
+
+    for (i = 0; i < minHeap->size; i++) {
+        free(minHeap->array[i]);
+    }
+    free(minHeap->array);
+
+    minHeap->size = 0;
+
+    minHeap->array = (MinHeapNode **)malloc(capacity * sizeof(MinHeapNode *));
+    for (i = 0; i < capacity; i++) {
+        minHeap->array[i] = (MinHeapNode *)malloc(sizeof(MinHeapNode));
+    }
+
+    fillMinHeap(minHeap);
+}
+
 PathFinder *createPathFinder(int width, int height) {
     int i, posX, posY;
 
@@ -167,7 +185,7 @@ PathFinder *createPathFinder(int width, int height) {
 }
 
 void setPathFinderStart(PathFinder *pathFinder, int posX, int posY) {
-    PathTile *pathTile = pathFinder->array[posX][posY];
+    PathTile *pathTile = pathFinder->array[posY][posX];
 
     char tileType = pathTile->pathType;
 
@@ -204,7 +222,9 @@ void resetPathFinder(PathFinder *pathFinder) {
         for (posX = 0; posX < pathFinder->width; posX++) {
             PathTile *pathTile = pathFinder->array[posY][posX];
 
-            pathTile->time = 0;
+            pathTile->time = INT_MAX;
+            pathTile->accessible = 0;
+            pathTile->visited = 0;
             pathTile->prevPathTile = NULL;
         }
     }
@@ -220,7 +240,7 @@ void printPathFinder(PathFinder *pathFinder) {
             printf("pathFinder->array[%d][%d]: ", posY, posX);
             printf("time - %d, ", pathTile->time);
             if (pathTile->prevPathTile != NULL) {
-                printf("prevPathTile[Y][X] - %d/%d, ", pathTile->prevPathTile->posX, pathTile->prevPathTile->posY);
+                printf("prevPathTile[Y][X] - %d/%d, ", pathTile->prevPathTile->posY, pathTile->prevPathTile->posX);
             } else {
                 printf("prevPathTile[Y][X] - NULL, ");
             }
@@ -230,6 +250,8 @@ void printPathFinder(PathFinder *pathFinder) {
             printf("\n");
         }
     }
+
+    printf("\n");
 }
 
 void decreaseKey(struct MinHeap* minHeap, int posX, int posY, int time) {
@@ -245,8 +267,8 @@ void decreaseKey(struct MinHeap* minHeap, int posX, int posY, int time) {
     }
 }
 
-void setMinHeapStart(MinHeap *minHeap, char** map, int posX, int posY) {
-    char tileType = map[posY][posX];
+void setMinHeapStart(MinHeap *minHeap, PathFinder *pathFinder, int posX, int posY) {
+    char tileType = pathFinder->array[posY][posX]->pathType;
 
     int timeInc = 0;
     switch (tileType) {
@@ -296,19 +318,19 @@ int isBlocker(PathTile *pathTile) {
 
 void check(PathFinder *pathFinder, MinHeap *minHeap, PathTile *prevPathTile, int posX, int posY) {
     if (!existsInPathFinder(pathFinder, posX, posY)) {
-        printf("doesnt exist\n");
+        //printf("doesnt exist\n");
         return;
     }
 
     PathTile *curPathTile = pathFinder->array[posY][posX];
 
     if (wasVisited(curPathTile)) {
-        printf("was visited\n");
+        //printf("was visited\n");
         return;
     }
 
     if (isBlocker(curPathTile)) {
-        printf("is blocker\n");
+        //printf("is blocker\n");
         return;
     }
 
@@ -331,51 +353,43 @@ void check(PathFinder *pathFinder, MinHeap *minHeap, PathTile *prevPathTile, int
         decreaseKey(minHeap, posX, posY, newTime);
         curPathTile->time = newTime;
         curPathTile->prevPathTile = prevPathTile;
-        printf("time updated - x:%d, y:%d, time: %d\n", posX, posY, newTime);
+        //printf("time updated - x:%d, y:%d, time: %d\n", posX, posY, newTime);
     }
 }
 
 int visit(PathFinder *pathFinder, MinHeap *minHeap, int posX, int posY) {
     PathTile *pathTile = pathFinder->array[posY][posX];
 
-    printf("visiting tile[Y/X]: %d/%d\n", pathTile->posY, pathTile->posX);
+    //printf("visiting tile[Y/X]: %d/%d\n", pathTile->posY, pathTile->posX);
 
 
     if (!pathTile->accessible) {
-        printf("not accessible\n");
+        //printf("not accessible\n");
         return 0;
     }
 
     pathTile->visited = 1;
 
-    printf("checking left:\n");
+    //printf("checking left:\n");
     check(pathFinder, minHeap, pathTile, posX - 1, posY);
-    printf("checking above:\n");
+    //printf("checking above:\n");
     check(pathFinder, minHeap, pathTile, posX, posY - 1);
-    printf("checking right:\n");
+    //printf("checking right:\n");
     check(pathFinder, minHeap, pathTile, posX + 1, posY);
-    printf("checking below:\n");
+    //printf("checking below:\n");
     check(pathFinder, minHeap, pathTile, posX, posY + 1);
 
-    printf("\n");
+    //printf("\n");
 
     return 1;
 }
 
-int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
-    int width = m;
-    int height = n;
-    char **map = mapa;
-    int time = t;
+void Dijkstra(MinHeap *minHeap, PathFinder *pathFinder, int startX, int startY) {
+    resetPathFinder(pathFinder);
+    setPathFinderStart(pathFinder, startX, startY);
 
-    int i, *path;
-
-    MinHeap *minHeap = createMinHeap(width, height);
-    setMinHeapStart(minHeap, map, 0, 0);
-
-    PathFinder *pathFinder = createPathFinder(width, height);
-    setPathFinderTileTypes(pathFinder, map);
-    setPathFinderStart(pathFinder, 0, 0);
+    resetMinHeap(minHeap);
+    setMinHeapStart(minHeap, pathFinder, startX, startY);
 
     while(minHeap->size != 0) {
         MinHeapNode *minHeapNode = extractMin(minHeap);
@@ -387,9 +401,145 @@ int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
             break;
         }
     }
+}
 
-    printMinHeap(minHeap);
-    printPathFinder(pathFinder);
+PathTile *getDragonTile(PathFinder *pathFinder) {
+    int posX, posY;
+
+    for (posY = 0; posY < pathFinder->height; posY++) {
+        for (posX = 0; posX < pathFinder->width; posX++) {
+            PathTile *pathTile = pathFinder->array[posY][posX];
+
+            if (pathTile->pathType == 'D') {
+                return pathTile;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+PathTile *getPrincessTile(PathFinder *pathFinder) {
+    int posX, posY;
+
+    for (posY = 0; posY < pathFinder->height; posY++) {
+        for (posX = 0; posX < pathFinder->width; posX++) {
+            PathTile *pathTile = pathFinder->array[posY][posX];
+
+            if (pathTile->pathType == 'P') {
+                return pathTile;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+int *getPath(PathTile *targetPathTile, int *pathLength) {
+    int i;
+    int *reversePath = (int *)malloc(2 * sizeof(int));
+
+    reversePath[0] = targetPathTile->posX;
+    reversePath[1] = targetPathTile->posY;
+    *pathLength = 1;
+
+    PathTile *curPathTile = targetPathTile->prevPathTile;
+    while (curPathTile != NULL) {
+        (*pathLength)++;
+        reversePath = realloc(reversePath, 2 * (*pathLength) * sizeof(int));
+        reversePath[(((*pathLength) - 1) * 2)] = curPathTile->posX;
+        reversePath[(((*pathLength) - 1) * 2) + 1] = curPathTile->posY;
+        curPathTile = curPathTile->prevPathTile;
+    }
+
+    int *path = (int *)malloc(2 * (*pathLength) * sizeof(int));
+
+    for (i = 0; i < *pathLength; i++) {
+        path[i * 2] = reversePath[2 * (*pathLength) - 2*i - 2];
+        path[i * 2 + 1] = reversePath[2 * (*pathLength) - 2*i - 1];
+    }
+
+    free(reversePath);
+
+    return path;
+}
+
+void *addPath(int *path, PathTile *targetPathTile, int *pathLength) {
+    int i;
+    int oldPathLength = *pathLength, newPathLength = 0;
+    int *newPath = getPath(targetPathTile, &newPathLength);
+
+    *pathLength = oldPathLength + newPathLength - 1;
+
+    path = (int *)realloc(path, 2 * (*pathLength) * sizeof(int));
+
+    for (i = 1; i < newPathLength; i++) {
+        path[2 * oldPathLength + 2 * (i - 1)] = newPath[2 * i];
+        path[2 * oldPathLength + 2 * (i - 1) + 1] = newPath[2 * i + 1];
+    }
+}
+
+void printPath(int *path, int pathLength) {
+    int i;
+
+    printf("Path [length %d]:\n", pathLength);
+    for (i = 0; i < pathLength; i++) {
+        printf("%d %d\n", path[i * 2], path[i * 2 + 1]);
+    }
+    printf("\n");
+}
+
+int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
+    int width = m;
+    int height = n;
+    char **map = mapa;
+    int time = t;
+    int *pathLength = dlzka_cesty;
+
+    int i, *path;
+
+    MinHeap *minHeap = createMinHeap(width, height);
+    PathFinder *pathFinder = createPathFinder(width, height);
+    setPathFinderTileTypes(pathFinder, map);
+
+    Dijkstra(minHeap, pathFinder, 0, 0);
+
+    PathTile *dragonTile = getDragonTile(pathFinder);
+    if (dragonTile != NULL) {
+        path = getPath(dragonTile, pathLength);
+    } else {
+        pathLength = 0;
+        return NULL;
+    }
+
+    if (dragonTile->time > time) {
+        pathLength = 0;
+        return NULL;
+    }
+
+    pathFinder->array[dragonTile->posY][dragonTile->posX]->pathType = 'C';
+
+    printf("DRAGON FOUND!\n");
+    printf("\n");
+
+    PathTile *prevTile = dragonTile;
+    while (getPrincessTile(pathFinder) != NULL) {
+        Dijkstra(minHeap, pathFinder, prevTile->posX, prevTile->posY);
+
+        printPathFinder(pathFinder);
+
+        PathTile *princessTile = getPrincessTile(pathFinder);
+        addPath(path, princessTile, pathLength);
+
+        pathFinder->array[princessTile->posY][princessTile->posX]->pathType = 'C';
+        prevTile = princessTile;
+
+        printf("PRINCESS FOUND!\n");
+        printf("\n");
+    }
+
+    printf("PRINCESSES FOUND!");
+    printf("\n");
 
     return path;
 }
@@ -416,6 +566,8 @@ int main() {
     mapa[9]="HHHPCCCCCC";
 
     cesta = zachran_princezne(mapa, n, m, t, &dlzka_cesty);
+
+    printPath(cesta, dlzka_cesty);
 
     return 0;
 }
