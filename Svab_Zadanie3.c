@@ -494,8 +494,8 @@ int *getPath(PathTile *targetPathTile, int *pathLength) {
     int *path = (int *)malloc(2 * (*pathLength) * sizeof(int));
 
     for (i = 0; i < *pathLength; i++) {
-        path[i * 2] = reversePath[2 * (*pathLength) - 2*i - 2];
-        path[i * 2 + 1] = reversePath[2 * (*pathLength) - 2*i - 1];
+        path[i * 2] = reversePath[2 * (*pathLength) - 2 * i - 2];
+        path[i * 2 + 1] = reversePath[2 * (*pathLength) - 2 * i - 1];
     }
 
     free(reversePath);
@@ -503,7 +503,17 @@ int *getPath(PathTile *targetPathTile, int *pathLength) {
     return path;
 }
 
-void *addPath(int *path, PathTile *targetPathTile, int *pathLength) {
+void printPath(int *path, int pathLength) {
+    int i;
+
+    printf("Path [length %d]:\n", pathLength);
+    for (i = 0; i < pathLength; i++) {
+        printf("%d %d\n", path[i * 2], path[i * 2 + 1]);
+    }
+    printf("\n");
+}
+
+int *addPath(int *path, PathTile *targetPathTile, int *pathLength) {
     int i;
     int oldPathLength = *pathLength, newPathLength = 0;
     int *newPath = getPath(targetPathTile, &newPathLength);
@@ -516,16 +526,8 @@ void *addPath(int *path, PathTile *targetPathTile, int *pathLength) {
         path[2 * oldPathLength + 2 * (i - 1)] = newPath[2 * i];
         path[2 * oldPathLength + 2 * (i - 1) + 1] = newPath[2 * i + 1];
     }
-}
 
-void printPath(int *path, int pathLength) {
-    int i;
-
-    printf("Path [length %d]:\n", pathLength);
-    for (i = 0; i < pathLength; i++) {
-        printf("%d %d\n", path[i * 2], path[i * 2 + 1]);
-    }
-    printf("\n");
+    return path;
 }
 
 int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
@@ -560,11 +562,10 @@ int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
 
     PathTile *prevTile = dragonTile;
     while (hasPrincess(pathFinder)) {
-
         Dijkstra(minHeap, pathFinder, prevTile->posX, prevTile->posY);
 
         PathTile *princessTile = getPrincessTile(pathFinder);
-        addPath(path, princessTile, pathLength);
+        path = addPath(path, princessTile, pathLength);
 
         pathFinder->array[princessTile->posY][princessTile->posX]->pathType = 'C';
         prevTile = princessTile;
