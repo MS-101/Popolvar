@@ -151,8 +151,42 @@ void resetMinHeap(MinHeap *minHeap) {
     fillMinHeap(minHeap);
 }
 
+PathFinder *copyPathFinder(PathFinder *pathFinder) {
+    int posX, posY;
+
+    PathFinder *pathFinderCopy = (PathFinder *)malloc(sizeof(PathFinder));
+    pathFinderCopy->width = pathFinder->width;
+    pathFinderCopy->height = pathFinder->height;
+
+    pathFinderCopy->array = (PathTile ***)malloc(pathFinder->height * sizeof(PathTile **));
+    for (posY = 0; posY < pathFinder->height; posY++) {
+        pathFinderCopy->array[posY] = (PathTile **)malloc(pathFinder->width * sizeof(PathTile *));
+
+        for (posX = 0; posX < pathFinder->width; posX++) {
+            pathFinderCopy->array[posY][posX] = (PathTile *)malloc(sizeof(PathTile));
+        }
+    }
+
+    for (posY = 0; posY < pathFinder->height; posY++) {
+        for (posX = 0; posX < pathFinder->width; posX++) {
+            PathTile *pathTile = pathFinderCopy->array[posY][posX];
+
+            pathTile->posX = posX;
+            pathTile->posY = posY;
+            pathTile->time = INT_MAX;
+            pathTile->visited = 0;
+            pathTile->accessible = 0;
+            pathTile->prevPathTile = (PathTile *)malloc(sizeof(PathTile));
+            pathTile->prevPathTile = NULL;
+            pathTile->pathType = pathFinder->array[posY][posX]->pathType;
+        }
+    }
+
+    return pathFinderCopy;
+}
+
 PathFinder *createPathFinder(int width, int height) {
-    int i, posX, posY;
+    int posX, posY;
 
     PathFinder *pathFinder = (PathFinder *)malloc(sizeof(PathFinder));
     pathFinder->width = width;
@@ -274,7 +308,6 @@ void setMinHeapStart(MinHeap *minHeap, PathFinder *pathFinder, int posX, int pos
     switch (tileType) {
     case 'C': case 'D': case 'P':
         timeInc = 1;
-        break;
     case 'H':
         timeInc = 2;
         break;
@@ -283,23 +316,6 @@ void setMinHeapStart(MinHeap *minHeap, PathFinder *pathFinder, int posX, int pos
     decreaseKey(minHeap, posX, posY, timeInc);
 }
 
-void printMinHeap(MinHeap *minHeap) {
-    int i, posX, posY;
-
-    for (i = 0; i < minHeap->size; i++) {
-        printf("array[%d]: %d\n", i, minHeap->array[i]->time);
-    }
-
-    /*
-    for (posY = 0; posY < minHeap->height; posY++) {
-        for (posX = 0; posX < minHeap->width; posX++) {
-            printf("pos[%d][%d]: %d\n", posY, posX, minHeap->pos[posY][posX]);
-        }
-    }
-    */
-
-    printf("\n");
-}
 
 int existsInPathFinder(PathFinder *pathFinder, int posX, int posY) {
     int width = pathFinder->width;
@@ -435,45 +451,6 @@ int hasPrincess(PathFinder *pathFinder) {
     return 0;
 }
 
-PathTile *getPrincessTile(PathFinder *pathFinder) {
-    int i;
-    int posX, posY;
-    int princessCount = 0;
-    PathTile **princessArray;
-
-    for (posY = 0; posY < pathFinder->height; posY++) {
-        for (posX = 0; posX < pathFinder->width; posX++) {
-            PathTile *pathTile = pathFinder->array[posY][posX];
-
-            if (pathTile->pathType == 'P' && pathTile->accessible == 1) {
-                if (princessCount == 0) {
-                    princessCount++;
-                    princessArray = (PathTile **)malloc(princessCount * sizeof(PathTile *));
-                    princessArray[princessCount - 1] = pathTile;
-                } else {
-                    princessCount++;
-                    princessArray = (PathTile **)realloc(princessArray, princessCount * sizeof(PathTile *));
-                    princessArray[princessCount - 1] = pathTile;
-                }
-            }
-        }
-    }
-
-    if (princessCount > 0) {
-        PathTile *closestPrincess = princessArray[0];
-
-        for (i = 1; i < princessCount; i++) {
-            if (princessArray[i]->time < closestPrincess->time) {
-                closestPrincess = princessArray[i];
-            }
-        }
-
-        return closestPrincess;
-    }
-
-    return NULL;
-}
-
 int *getPath(PathTile *targetPathTile, int *pathLength) {
     int i;
     int *reversePath = (int *)malloc(2 * sizeof(int));
@@ -513,21 +490,63 @@ void printPath(int *path, int pathLength) {
     printf("\n");
 }
 
-int *addPath(int *path, PathTile *targetPathTile, int *pathLength) {
+int *addPath(int *path, int* addedPath, int *pathLength, int addedPathLength) {
     int i;
-    int oldPathLength = *pathLength, newPathLength = 0;
-    int *newPath = getPath(targetPathTile, &newPathLength);
+    int oldPathLength = *pathLength;
 
-    *pathLength = oldPathLength + newPathLength - 1;
+    *pathLength += addedPathLength - 1;
 
     path = (int *)realloc(path, 2 * (*pathLength) * sizeof(int));
 
-    for (i = 1; i < newPathLength; i++) {
-        path[2 * oldPathLength + 2 * (i - 1)] = newPath[2 * i];
-        path[2 * oldPathLength + 2 * (i - 1) + 1] = newPath[2 * i + 1];
+    for (i = 1; i < addedPathLength; i++) {
+        path[2 * oldPathLength + 2 * (i - 1)] = addedPath[2 * i];
+        path[2 * oldPathLength + 2 * (i - 1) + 1] = addedPath[2 * i + 1];
     }
 
     return path;
+}
+
+int *getPrincessPath(MinHeap *minHeap, PathFinder *pathFinder, int startX, int startY, int *princessPathLength, int *time) {
+    int posX, posY;
+    int *princessPath = NULL;
+
+    PathFinder *pathFinderCopy = copyPathFinder(pathFinder);
+    Dijkstra(minHeap, pathFinderCopy, startX, startY);
+
+    for (posY = 0; posY < pathFinder->height; posY++) {
+        for (posX = 0; posX < pathFinder->width; posX++) {
+            PathTile *pathTile = pathFinderCopy->array[posY][posX];
+
+            if (pathTile->pathType == 'P' && pathTile->accessible == 1) {
+                pathFinder->array[pathTile->posY][pathTile->posX]->pathType = 'C';
+
+                int newPathLength = 0;
+                int newTime = pathTile->time;
+                int *newPath = getPath(pathTile, &newPathLength);
+
+                if (hasPrincess(pathFinder)) {
+                    int addedPathLength = 0;
+                    int addedTime = 0;
+                    int *addedPath = getPrincessPath(minHeap, pathFinder, pathTile->posX, pathTile->posY, &addedPathLength, &addedTime);
+
+                    newPath = addPath(newPath, addedPath, &newPathLength, addedPathLength);
+                    newTime += addedTime;
+                }
+
+
+                if (princessPath == NULL || newTime < *time) {
+                    princessPath = newPath;
+                    *princessPathLength = newPathLength;
+                    int *testVariable = newTime;
+                    *time = newTime;
+                }
+
+                pathFinder->array[pathTile->posY][pathTile->posX]->pathType = 'P';
+            }
+        }
+    }
+
+    return princessPath;
 }
 
 int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
@@ -558,18 +577,18 @@ int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
         return NULL;
     }
 
-    pathFinder->array[dragonTile->posY][dragonTile->posX]->pathType = 'C';
-
-    PathTile *prevTile = dragonTile;
-    while (hasPrincess(pathFinder)) {
-        Dijkstra(minHeap, pathFinder, prevTile->posX, prevTile->posY);
-
-        PathTile *princessTile = getPrincessTile(pathFinder);
-        path = addPath(path, princessTile, pathLength);
-
-        pathFinder->array[princessTile->posY][princessTile->posX]->pathType = 'C';
-        prevTile = princessTile;
+    if (!hasPrincess(pathFinder)) {
+        return NULL;
     }
+
+    pathFinder->array[dragonTile->posY][dragonTile->posX]->pathType = 'C';
+    PathTile *prevTile = dragonTile;
+
+    int princessPathLength = 0;
+    int startTime = 0;
+    int *princessPath = getPrincessPath(minHeap, pathFinder, prevTile->posX, prevTile->posY, &princessPathLength, &startTime);
+
+    path = addPath(path, princessPath, pathLength, princessPathLength);
 
     return path;
 }
@@ -579,21 +598,15 @@ int main() {
     int i, dlzka_cesty, cas, *cesta;
     int n=0, m=0, t=0;
 
-    n = 10;
+    n = 4;
     m = 10;
     t = 20;
 
     mapa = (char**)malloc(n*sizeof(char*));
-    mapa[0]="CCHCNHCCHN";
-    mapa[1]="NNCCCHHCCC";
-    mapa[2]="DNCCNNHHHC";
-    mapa[3]="CHHHCCCCCC";
-    mapa[4]="CCCCCNHHHH";
-    mapa[5]="PCHCCCNNNN";
-    mapa[6]="NNNNNHCCCC";
-    mapa[7]="CCCCCPCCCC";
-    mapa[8]="CCCNNHHHHH";
-    mapa[9]="HHHPCCCCCC";
+    mapa[0]="CNNNNNNNNN";
+    mapa[1]="DPPCCCPCPC";
+    mapa[2]="CNNNNNNNNN";
+    mapa[3]="PNNNNNNNNN";
 
     cesta = zachran_princezne(mapa, n, m, t, &dlzka_cesty);
 
