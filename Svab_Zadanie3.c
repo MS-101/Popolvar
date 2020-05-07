@@ -334,19 +334,16 @@ int isBlocker(PathTile *pathTile) {
 
 void check(PathFinder *pathFinder, MinHeap *minHeap, PathTile *prevPathTile, int posX, int posY) {
     if (!existsInPathFinder(pathFinder, posX, posY)) {
-        //printf("doesnt exist\n");
         return;
     }
 
     PathTile *curPathTile = pathFinder->array[posY][posX];
 
     if (wasVisited(curPathTile)) {
-        //printf("was visited\n");
         return;
     }
 
     if (isBlocker(curPathTile)) {
-        //printf("is blocker\n");
         return;
     }
 
@@ -369,33 +366,22 @@ void check(PathFinder *pathFinder, MinHeap *minHeap, PathTile *prevPathTile, int
         decreaseKey(minHeap, posX, posY, newTime);
         curPathTile->time = newTime;
         curPathTile->prevPathTile = prevPathTile;
-        //printf("time updated - x:%d, y:%d, time: %d\n", posX, posY, newTime);
     }
 }
 
 int visit(PathFinder *pathFinder, MinHeap *minHeap, int posX, int posY) {
     PathTile *pathTile = pathFinder->array[posY][posX];
 
-    //printf("visiting tile[Y/X]: %d/%d\n", pathTile->posY, pathTile->posX);
-
-
     if (!pathTile->accessible) {
-        //printf("not accessible\n");
         return 0;
     }
 
     pathTile->visited = 1;
 
-    //printf("checking left:\n");
     check(pathFinder, minHeap, pathTile, posX - 1, posY);
-    //printf("checking above:\n");
     check(pathFinder, minHeap, pathTile, posX, posY - 1);
-    //printf("checking right:\n");
     check(pathFinder, minHeap, pathTile, posX + 1, posY);
-    //printf("checking below:\n");
     check(pathFinder, minHeap, pathTile, posX, posY + 1);
-
-    //printf("\n");
 
     return 1;
 }
@@ -598,15 +584,21 @@ int main() {
     int i, dlzka_cesty, cas, *cesta;
     int n=0, m=0, t=0;
 
-    n = 4;
+    n = 10;
     m = 10;
     t = 20;
 
     mapa = (char**)malloc(n*sizeof(char*));
-    mapa[0]="CNNNNNNNNN";
-    mapa[1]="DPPCCCPCPC";
-    mapa[2]="CNNNNNNNNN";
-    mapa[3]="PNNNNNNNNN";
+    mapa[0]="CCHCNHCCHN";
+    mapa[1]="NNCCCHHCCC";
+    mapa[2]="DNCCNNHHHC";
+    mapa[3]="CHHHCCCCCC";
+    mapa[4]="CCCCCNHHHH";
+    mapa[5]="PCHCCCNNNN";
+    mapa[6]="NNNNNHCCCC";
+    mapa[7]="CCCCCPCCCC";
+    mapa[8]="CCCNNHHHHH";
+    mapa[9]="HHHPCCCCCC";
 
     cesta = zachran_princezne(mapa, n, m, t, &dlzka_cesty);
 
