@@ -558,7 +558,7 @@ int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
         return NULL;
     }
 
-    if (dragonTile->time >= time) {
+    if (dragonTile->time > time) {
         *pathLength = 0;
         return NULL;
     }
@@ -586,7 +586,7 @@ int main() {
 
     n = 10;
     m = 10;
-    t = 20;
+    t = 12;
 
     mapa = (char**)malloc(n*sizeof(char*));
     mapa[0]="CCHCNHCCHN";
