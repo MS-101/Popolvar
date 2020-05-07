@@ -413,6 +413,7 @@ PathTile *getDragonTile(PathFinder *pathFinder) {
             PathTile *pathTile = pathFinder->array[posY][posX];
 
             if (pathTile->pathType == 'D' && pathTile->accessible == 1) {
+                pathTile->pathType = 'C';
                 return pathTile;
             }
         }
@@ -421,20 +422,25 @@ PathTile *getDragonTile(PathFinder *pathFinder) {
     return NULL;
 }
 
-int hasPrincess(PathFinder *pathFinder) {
+int hasPrincessPath(PathFinder *pathFinder) {
     int posX, posY;
+    int foundPrincess = 0;
 
     for (posY = 0; posY < pathFinder->height; posY++) {
         for (posX = 0; posX < pathFinder->width; posX++) {
             PathTile *pathTile = pathFinder->array[posY][posX];
 
-            if (pathTile->pathType == 'P' && pathTile->accessible == 1) {
-                return 1;
+            if (pathTile->pathType == 'P') {
+                foundPrincess = 1;
+
+                if (pathTile->accessible == 0) {
+                    return 0;
+                }
             }
         }
     }
 
-    return 0;
+    return foundPrincess;
 }
 
 int *getPath(PathTile *targetPathTile, int *pathLength) {
@@ -510,7 +516,7 @@ int *getPrincessPath(MinHeap *minHeap, PathFinder *pathFinder, int startX, int s
                 int newTime = pathTile->time;
                 int *newPath = getPath(pathTile, &newPathLength);
 
-                if (hasPrincess(pathFinder)) {
+                if (hasPrincessPath(pathFinder)) {
                     int addedPathLength = 0;
                     int addedTime = 0;
                     int *addedPath = getPrincessPath(minHeap, pathFinder, pathTile->posX, pathTile->posY, &addedPathLength, &addedTime);
@@ -523,7 +529,6 @@ int *getPrincessPath(MinHeap *minHeap, PathFinder *pathFinder, int startX, int s
                 if (princessPath == NULL || newTime < *time) {
                     princessPath = newPath;
                     *princessPathLength = newPathLength;
-                    int *testVariable = newTime;
                     *time = newTime;
                 }
 
@@ -563,11 +568,11 @@ int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
         return NULL;
     }
 
-    if (!hasPrincess(pathFinder)) {
+    if (!hasPrincessPath(pathFinder)) {
+        *pathLength = 0;
         return NULL;
     }
 
-    pathFinder->array[dragonTile->posY][dragonTile->posX]->pathType = 'C';
     PathTile *prevTile = dragonTile;
 
     int princessPathLength = 0;
@@ -579,6 +584,9 @@ int *zachran_princezne(char **mapa, int n, int m, int t, int *dlzka_cesty) {
     return path;
 }
 
+//Pôvodné testovanie
+
+/*
 int main() {
     char **mapa;
     int i, dlzka_cesty, cas, *cesta;
@@ -606,16 +614,21 @@ int main() {
 
     return 0;
 }
+*/
 
-/*
+//Nové testovanie
+//Testovacie vstupy sú v súboroch test1.txt, test2.txt a test3.txt
+
+
 int main() {
+    char filename[100];
     char **mapa;
     int i, test, dlzka_cesty, cas, *cesta;
     int n=0, m=0, t=0;
     FILE* f;
 
     while(1) {
-        printf("Zadajte cislo testu (0 ukonci program):\n");
+        printf("Zadajte cislo testu (0 ukonci program / 1 nacitaj subor):\n");
         scanf("%d",&test);
         dlzka_cesty = 0;
         n=m=t=0;
@@ -623,7 +636,12 @@ int main() {
         case 0: //ukonci program
             return 0;
         case 1: //nacitanie mapy zo suboru
-            f=fopen("test.txt","r");
+            printf("Zadaj meno suboru: ");
+            scanf("%s", filename);
+            if ((f = fopen(filename,"r")) == NULL) {
+                printf("dany subor neexistuje\n");
+                break;
+            }
             if(f)
                 fscanf(f, "%d %d %d", &n, &m, &t);
             else
@@ -685,4 +703,3 @@ int main() {
 
     return 0;
 }
-*/
